@@ -15,27 +15,20 @@ class RandomSample(object):
 
     @staticmethod 
     def getSample(mu, sigma, dim):                  #losowanie polozen poczatkowych
-        return 1.5*np.random.normal(mu, sigma, dim)
+        return 1.5*np.random.normal(mu, sigma, dim) #to juz zwraca wektor
     
-    """@staticmethod                                #losuje polozenia poczatkowe eliminujac powtorzenia, ale to glupie bo przeciez moga byc 3 wymiary
-    def getSampleSet(mu, sigma, n):
-        sample = RandomSample.getSample(mu, sigma, n)
-        sampleSet = set(sample)
-        difference = n - len(sampleSet)
-        while difference:
-            sampleSet = sampleSet.union(set(getSample(mu, sigma, difference)))
-            difference = n - len(sampleSet)
-        return sampleSet"""
-    def getSampleSet(mu, sigma, n):
-        return None
+    @staticmethod
+    def getSampleSet(mu, sigma, size, dim):
+        return [RandomSample.getSample(mu, sigma, dim) for i in range(size)]
 
 class Atoms(object):            # zbior czasteczek 
     
-    def __init__(self, size, dim, atoms=[]):            #size - l.czasteczek, dim-wymiar
+    dim = 1                    #na sile, bo mozemy miec kilka pudelek z tomami ale musimy rozwac ten sam wymiar ;]
+
+    def __init__(self, size, atoms=[]):            #size - l.czasteczek, dim-wymiar
         self.size = size
-        self.dim = dim
-        self.atoms = \
-            [Atom(np.array([i])) for i in RandomSample.getSampleSet(0,10,self.size*self.dim)]
+        self.atoms = [Atom(vector) for vector in \
+                RandomSample.getSampleSet(0, 10, self.size, Atoms.dim)]
 
 class ForceField(object):
     
@@ -50,7 +43,7 @@ class SoftWalls(ForceField):
     def singleForce(self, atom):         
         distance = np.linalg.norm(atom.position)       #tu we wzorze sa 2 rozne r_i!
         if distance < self.L:
-            return np.array([0, 0, 0]) 
+            return np.zeros(Atoms.dim) 
         else:
             return self.f*(self.L-distance)*atom.position/distance # bo tu jest juz rozniczka, a minus ze wzoru na sile
             #jesli podzielimy wektor przez jego dlugosc, to dostaniemy wektor unormowany - czyli o dlugosci 1
@@ -91,7 +84,7 @@ def main(*args):
         a=Atoms(5)
         b = SoftWalls()
         for i in a.atoms:
-            print i.position, i.position, b.singleForce(i)
+            print i.position, b.singleForce(i)
                                          
 if __name__ == '__main__':
     sys.exit(main(*sys.argv))
