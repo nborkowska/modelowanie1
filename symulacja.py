@@ -11,8 +11,11 @@ class Atom(object):
         self.position = position
         self.mass = mass
         self.energy = energy                     #energia kinetyczna
-        self.force = np.zeros(Atoms.dim)
-        self.velocity = np.zeros(Atoms.dim)
+        self.force = self.lastForce \
+                 = np.zeros(Atoms.dim)
+        self.velocity = \
+                self.lastVelocity \
+                = np.zeros(Atoms.dim)
 
 class RandomSample(object):
 
@@ -34,7 +37,7 @@ class Atoms(object):            # zbior czasteczek
                 RandomSample.getSampleSet(0, 10, self.size, self.dim)]
 
 class ForceField(object):
-""" 'Abstract' class"""
+    """ 'Abstract' class"""
 
     def singleForce(self, atom):
         raise NotImplementedError
@@ -124,6 +127,44 @@ class LenardJones(ForceField):
         E = self.e*a*(a-2)
         #print 'ss',a**2 - 2*a co robic z ujemna energia :(?
         atom1.energy, atom2.energy = E/2, E/2
+
+
+class Verlet(object):
+    """ Abstract """
+    
+    def position(self, atom):
+        raise NotImplementedError
+
+    def velocity(self, atom):
+        raise NotImplementedError
+
+
+class BaseVerlet(Verlet):
+    
+    def position(self, atom):
+        pass
+
+    def velocity(self, atom):
+        pass
+
+
+class VelocityVerlet(Verlet):
+    
+    def position(self, atom):
+        pass
+
+    def velocity(self, atom):
+        pass
+
+
+class LeapFrog(Verlet):
+    
+    def position(self, atom):
+        pass
+
+    def velocity(self, atom):
+        pass
+
 
 def help():
 
