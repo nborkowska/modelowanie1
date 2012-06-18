@@ -3,7 +3,7 @@
 import sys
 import numpy as np
 import math
-
+import matplotlib.pyplot as plt
 
 class Atom(object):
     
@@ -35,8 +35,8 @@ class Atoms(object):            # zbior czasteczek
         self.size = size
         self.atoms = [Atom(vector) for vector in \
                 RandomSample.getSampleSet(0, 10, self.size, self.dim)]
-        """self.atoms = [Atom(np.array([float(i)])) for i in range(self.size)]    #to wcale nie pomaga w dzialaniu
-        print self.atoms[-1].position"""
+        self.atoms = [Atom(np.array([i])) for i in range(self.size)]    #to wcale nie pomaga w dzialaniu
+        print self.atoms[-1].position
 
     def resetFAndE(self):
         for atom in self.atoms:
@@ -70,7 +70,7 @@ class SoftWalls(ForceField):
             atom.force = np.zeros(Atoms.dim) 
         else:
             atom.force = self.f*(self.L-distance)*atom.position/distance # bo tu jest juz rozniczka, a minus ze wzoru na sile
-            #jesli podzielimy wektor przez jego dlugosc, to dostaniemy wektor unormowany - czyli o dlugosci 1
+            
 
     def singleEnergy(self, atom):
         distance = np.linalg.norm(atom.position)
@@ -88,13 +88,15 @@ class SoftWalls(ForceField):
 
 class MBM(ForceField):
     
-    a, b, c, d = 5, 10, 3, 0.02     #parametry ze skryptu
+    a, b, c, d = 5.0, 10.0, 3.0, 0.02     #parametry ze skryptu
     
     def singleForce(self, atom):
         x = atom.position
+        #x = np.linalg.norm(atom.position)
+        #print atom.position, x**3
         atom.force = self.a*math.exp(-self.b*(x-1)**2)*2*self.b*(x-1) \
                 + self.c*math.exp(-(x+1)**2)*2*(1+x) \
-                + 4*self.d*x**3
+                + (x**3)*4*self.d
     
     def singleEnergy(self, atom):
         x = atom.position[0]
@@ -133,7 +135,6 @@ class LenardJones(ForceField):
     def pairEnergy(self, atom1, atom2):
         normalized, a = self.setParams(atom1, atom2)
         E = self.e*a*(a-2)
-        #print 'ss',a**2 - 2*a co robic z ujemna energia :(?
         atom1.energy, atom2.energy = E/2, E/2
 
 
@@ -157,6 +158,7 @@ class Simulation(object):
         previous = zip(prevPos, prevVel, prevFor)        #dla pojedynczego atomu previous[index] to 3-elementowa krotka
         verlet = {'0': BaseVerlet(), '1': VelocityVerlet(), '2': LeapFrog()}.get(self.integration)
         potential = {'0': SoftWalls(), '1': MBM(), '2': LenardJones()}.get(self.potential)
+        energy_result=[]
         
         for step in range(self.noSteps):
             system.resetFAndE()
@@ -174,12 +176,17 @@ class Simulation(object):
                 totalKinEnergy += system.atoms[i].getKinEnergy()
             avPotEnergy = 1.0*totalPotEnergy/self.no_molecules
             avKinEnergy = 1.0*totalKinEnergy/self.no_molecules
+            energy_result.append(avPotEnergy+avKinEnergy)
             energy.write(str(avPotEnergy)+'\t'+str(avKinEnergy)+'\t'+str(avPotEnergy+avKinEnergy)+'\n')
             trajectory.write(str(system.atoms[i].position[0])+'\t0.000\t0.000\n')
             # policz dla kazdego atomu energie potencjalne i sily, zapisz albo wyrzuc albo jedno i drugie
             # policz dla kazdego atomu polozenie i predkosci i energie kinetyczna zapisz albo wyrzuc do pliku 
+        plt.plot(energy_result)
+        plt.savefig("energia_calkowita.svg")
+        plt.close()
         energy.close()
         trajectory.close()
+
 
 
 class Integration(object):
@@ -196,6 +203,7 @@ class BaseVerlet(Integration):
         current = (atom.position, atom.velocity, atom.force)
         atom.position = 2*atom.position-previous[0]+(stepSize**2)*atom.force/atom.mass 
         atom.velocity = (atom.position - current[0])/stepSize
+        print atom.position
         return current
     
     
