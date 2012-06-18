@@ -10,18 +10,18 @@ class Atom(object):
     def __init__(self, position, mass=1.0, energy = 0.0):
         self.position = position
         self.mass = mass
-        self.energy = energy                     #energia kinetyczna
-        self.force = self.lastForce \
-                 = np.zeros(Atoms.dim)
-        self.velocity = \
-                self.lastVelocity \
-                = np.zeros(Atoms.dim)
+        self.energy = energy                     #energia potencjalna, kinetyczna jest wyliczana
+        self.force = np.zeros(Atoms.dim)
+        self.velocity = np.zeros(Atoms.dim)
+    
+    def getKinEnergy(self):
+        return 0.5*self.mass*np.linalg.norm(self.velocity)**2
 
 class RandomSample(object):
 
     @staticmethod 
     def getSample(mu, sigma, dim):                  #losowanie polozen poczatkowych
-        return 1.5*np.random.normal(mu, sigma, dim) #to juz zwraca wektor
+        return 1.5*np.random.normal(mu, sigma, dim)#to juz zwraca wektor
     
     @staticmethod
     def getSampleSet(mu, sigma, size, dim):
@@ -36,6 +36,12 @@ class Atoms(object):            # zbior czasteczek
         self.atoms = [Atom(vector) for vector in \
                 RandomSample.getSampleSet(0, 10, self.size, self.dim)]
 
+    def resetFAndE(self):
+        for atom in self.atoms:
+            self.force = np.zeros(self.dim)
+            self.energy = 0
+
+
 class ForceField(object):
     """ 'Abstract' class"""
 
@@ -45,11 +51,12 @@ class ForceField(object):
     def singleEnergy(self, atom):
         raise NotImplementedError
     
-    def pairForce(self, atom):
+    def pairForce(self, atom1, atom2):
         raise NotImplementedError
     
     def pairEnergy(self, atom1, atom2):
         raise NotImplementedError
+
 
 class SoftWalls(ForceField):
     
@@ -70,7 +77,7 @@ class SoftWalls(ForceField):
         else:
             atom.energy = 0.5*self.f*(self.L - distance)**2
     
-    def pairForce(self, atom):
+    def pairForce(self, atom1, atom2):
         pass
     
     def pairEnergy(self, atom1, atom2):
@@ -92,7 +99,7 @@ class MBM(ForceField):
         atom.energy = self.a*math.exp(-self.b*(x-1)**2) \
                 - self.c*math.exp(-(x+1)**2) + self.d*x**4
 
-    def pairForce(self, atom):
+    def pairForce(self, atom1, atom2):
         pass
     
     def pairEnergy(self, atom1, atom2):
@@ -113,7 +120,6 @@ class LenardJones(ForceField):
         direction = atom1.position-atom2.position # wektor kierunkowy
         distance = np.linalg.norm(atom1.position-atom2.position) #odleglosc euklidesowa
         a = (self.R/distance)**6
-        print 'distance: ', distance, '\na: ', a
         return direction/distance, a
     
     def pairForce(self, atom1, atom2):
@@ -129,42 +135,85 @@ class LenardJones(ForceField):
         atom1.energy, atom2.energy = E/2, E/2
 
 
-class Verlet(object):
+class Simulation(object):
+
+    def __init__(self, potential, integration, no_molecules, noSteps, stepSize):
+        self.potential = potential
+        self.integration = integration
+        self.no_molecules = int(no_molecules)
+        self.noSteps = int(noSteps)
+        self.stepSize = float(stepSize)
+
+    def start(self):                     # w tym bedzie wmieszane juz pisanie do pliku i wyrzucanie na standardowe, zeby bylo mniej zabawy i tyle, moze pozniej poprawie
+        energy = open('energy.csv', 'w') 
+        trajectory = open('trajectory.xyz', 'w') 
+        
+        system = Atoms(self.no_molecules)
+        
+        prevPos = [x.position for x in system.atoms]
+        prevVel = prevFor = np.zeros((self.no_molecules,Atoms.dim))
+        previous = zip(prevPos, prevVel, prevFor)        #dla pojedynczego atomu previous[index] to 3-elementowa krotka
+        verlet = {'0': BaseVerlet(), '1': VelocityVerlet(), '2': LeapFrog()}.get(self.integration)
+        potential = {'0': SoftWalls(), '1': MBM(), '2': LenardJones()}.get(self.potential)
+        
+        for step in range(self.noSteps):
+            system.resetFAndE()
+            trajectory.write(str(self.noSteps)+'\nkomentarz\n')
+            totalPotEnergy = totalKinEnergy = 0
+            for i in range(self.no_molecules):
+                potential.singleForce(system.atoms[i])
+                potential.singleEnergy(system.atoms[i])
+                for atom in system.atoms[i+1:]:
+                    potential.pairForce(system.atoms[i], atom)
+                    potential.pairEnergy(system.atoms[i], atom)
+                
+                totalPotEnergy += system.atoms[i].energy
+                previous[i] = verlet.step(system.atoms[i], previous[i], self.stepSize) #od razu sie ustawia nowe previous dla tego atomu
+                totalKinEnergy += system.atoms[i].getKinEnergy()
+            avPotEnergy = 1.0*totalPotEnergy/self.no_molecules
+            avKinEnergy = 1.0*totalKinEnergy/self.no_molecules
+            energy.write(str(avPotEnergy)+'\t'+str(avKinEnergy)+'\t'+str(avPotEnergy+avKinEnergy)+'\n')
+            trajectory.write(str(system.atoms[i].position[0])+'\t0.000\t0.000\n')
+            # policz dla kazdego atomu energie potencjalne i sily, zapisz albo wyrzuc albo jedno i drugie
+            # policz dla kazdego atomu polozenie i predkosci i energie kinetyczna zapisz albo wyrzuc do pliku 
+        energy.close()
+        trajectory.close()
+
+
+class Integration(object):
     """ Abstract """
     
-    def position(self, atom):
-        raise NotImplementedError
-
-    def velocity(self, atom):
+    def step(self, atom, previous, stepSize):                      #nastepny krok dla pojedynczego atomu i pojedynczego kroku 
         raise NotImplementedError
 
 
-class BaseVerlet(Verlet):
+class BaseVerlet(Integration):
     
-    def position(self, atom):
-        pass
-
-    def velocity(self, atom):
-        pass
-
-
-class VelocityVerlet(Verlet):
+    def step(self, atom, previous, stepSize):
+        #print 'previous',previous
+        current = (atom.position, atom.velocity, atom.force)
+        atom.position = 2*atom.position-previous[0]+(stepSize**2)*atom.force/atom.mass 
+        atom.velocity = (atom.position - current[0])/stepSize
+        return current
     
-    def position(self, atom):
-        pass
-
-    def velocity(self, atom):
-        pass
-
-
-class LeapFrog(Verlet):
     
-    def position(self, atom):
-        pass
+class VelocityVerlet(Integration):
+    
+    def step(self, atom, previous, stepSize):
+        current = (atom.position, atom.velocity, atom.force)
+        atom.velocity = atom.velocity+stepSize*0.5*(previous[2]/atom.mass - atom.force/atom.mass)
+        atom.position = atom.position+atom.velocity*stepSize+(stepSize**2)*0.5*atom.force/atom.mass
+        return current
 
-    def velocity(self, atom):
-        pass
 
+class LeapFrog(Integration):
+    
+    def step(self, atom, previous, stepSize):
+        current = (atom.position, atom.velocity, atom.force)
+        atom.velocity = atom.velocity+stepSize*atom.force/atom.mass
+        atom.position = atom.position+atom.velocity*stepSize
+        return current
+    
 
 def help():
 
@@ -186,8 +235,16 @@ def main(*args):
         print 'Too few parameters.\n', help()
         return 0
     else:
-        potential, integration, no_molecules, no_steps, steps_length = args[1:]
-        a=Atoms(5)
+        potential, integration, no_molecules, noSteps, stepSize = args[1:] #slaaabe 
+        available = range(3)
+        if int(potential) not in available or int(integration) not in available:
+            print 'Incorrect potential/integration. \n', help()
+            return 0
+        else:
+            simulation = Simulation(potential, integration, no_molecules, noSteps, stepSize)              #i tak korzystam w verlecie z globalnej wartosci stepSize... czyli tej co powyzej
+            simulation.start()
+        
+        """a = Atoms(int(no_molecules))
         b = SoftWalls()
         c = MBM()
         d = LenardJones()
@@ -198,6 +255,8 @@ def main(*args):
         b.singleEnergy(a.atoms[3])
         d.pairEnergy(a.atoms[1], a.atoms[2])
         print a.atoms[0].energy, a.atoms[1].energy, a.atoms[3].energy
+        o = BaseVerlet()
+        o.nextPosition(a.atoms[2])"""
                                          
 if __name__ == '__main__':
     sys.exit(main(*sys.argv))
