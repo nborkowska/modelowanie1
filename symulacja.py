@@ -35,6 +35,8 @@ class Atoms(object):            # zbior czasteczek
         self.size = size
         self.atoms = [Atom(vector) for vector in \
                 RandomSample.getSampleSet(0, 10, self.size, self.dim)]
+        """self.atoms = [Atom(np.array([float(i)])) for i in range(self.size)]    #to wcale nie pomaga w dzialaniu
+        print self.atoms[-1].position"""
 
     def resetFAndE(self):
         for atom in self.atoms:
