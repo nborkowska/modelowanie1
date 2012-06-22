@@ -36,7 +36,7 @@ class Atoms(object):            # zbior czasteczek
         """self.atoms = [Atom(vector) for vector in \
                 RandomSample.getSampleSet(0, 10, self.size, self.dim)]"""
         self.atoms = [Atom(np.array([i])) for i in range(-self.size/2,self.size/2)]
-        #self.atoms = [Atom(np.array([i/10.0])) for i in range(-self.size, self.size, 2)] # do testu wykresu mbm
+       #self.atoms = [Atom(np.array([i/10.0])) for i in range(-self.size, self.size, 2)] # do testu wykresu mbm
 
     def resetFAndE(self):
         for atom in self.atoms:
@@ -221,7 +221,7 @@ class VelocityVerlet(Integration):
     
     def step(self, atom, previous, stepSize):
         current = (atom.position, atom.velocity, atom.force)
-        atom.velocity = atom.velocity+stepSize*0.5*(previous[2]/atom.mass - atom.force/atom.mass)
+        atom.velocity = atom.velocity+stepSize*0.5*(previous[2]/atom.mass + atom.force/atom.mass)
         atom.position = atom.position+atom.velocity*stepSize+(stepSize**2)*0.5*atom.force/atom.mass
         return current
 
@@ -261,8 +261,9 @@ def main(*args):
             print 'Incorrect potential/integration. \n', help()
             return 0
         else:
-            simulation = Simulation(potential, integration, no_molecules, noSteps, stepSize)              #i tak korzystam w verlecie z globalnej wartosci stepSize... czyli tej co powyzej
+            simulation = Simulation(potential, integration, no_molecules, noSteps, stepSize)              #i tak korzystam w verlecie z globalnej wartosci stepSize...
             simulation.start()
+            
                                                  
 if __name__ == '__main__':
     sys.exit(main(*sys.argv))
