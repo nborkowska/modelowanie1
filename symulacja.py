@@ -100,7 +100,7 @@ class MBM(ForceField):
     
     def singleEnergy(self, atom):
         x = atom.position[0]
-        atom.energy = self.a*math.exp(-self.b*(x-1)**2) \
+        atom.energy = -self.a*math.exp(-self.b*(x-1)**2) \
                 - self.c*math.exp(-(x+1)**2) + self.d*x**4
 
     def pairForce(self, atom1, atom2):
@@ -147,7 +147,7 @@ class Simulation(object):
         self.noSteps = int(noSteps)
         self.stepSize = float(stepSize)
 
-    def start(self):                     # w tym bedzie wmieszane juz pisanie do pliku i wyrzucanie na standardowe, zeby bylo mniej zabawy i tyle, moze pozniej poprawie
+    def start(self):                     # w tym bedzie wmieszane juz pisanie do pliku (do poprawy) 
         energy = open('energy.csv', 'w') 
         trajectory = open('trajectory.xyz', 'w') 
         
@@ -194,6 +194,7 @@ class Simulation(object):
             energy_result.append(avPotEnergy+avKinEnergy)
             energy.write(str(avPotEnergy)+'\t'+str(avKinEnergy)+'\t'+str(avPotEnergy+avKinEnergy)+'\n')
             trajectory.write(str(system.atoms[i].position[0])+'\t0.000\t0.000\n')
+        
         plt.plot(energy_result)
         plt.savefig("energia_calkowita.svg")
         plt.close()
