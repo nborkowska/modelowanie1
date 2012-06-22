@@ -169,7 +169,7 @@ class Simulation(object):
         prevPos = [x.position for x in system.atoms]
         prevVel = prevFor = np.zeros((self.no_molecules,Atoms.dim))
         previous = zip(prevPos, prevVel, prevFor)        #dla pojedynczego atomu previous[index] to 3-elementowa krotka
-        verlet = {'0': BaseVerlet(), '1': VelocityVerlet(), '2': LeapFrog()}.get(self.integration)
+        verlet = {'0': BasicVerlet(), '1': VelocityVerlet(), '2': LeapFrog()}.get(self.integration)
         potential = {'0': SoftWalls(), '1': MBM(), '2': LenardJones()}.get(self.potential)
         energy_result=[]
         
@@ -208,7 +208,7 @@ class Integration(object):
         raise NotImplementedError
 
 
-class BaseVerlet(Integration):
+class BasicVerlet(Integration):
     
     def step(self, atom, previous, stepSize):
         current = (atom.position, atom.velocity, atom.force)
