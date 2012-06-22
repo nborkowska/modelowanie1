@@ -36,7 +36,7 @@ class Atoms(object):            # zbior czasteczek
         """self.atoms = [Atom(vector) for vector in \
                 RandomSample.getSampleSet(0, 10, self.size, self.dim)]"""
         self.atoms = [Atom(np.array([i])) for i in range(-self.size/2,self.size/2)]
-        #self.atoms = [Atom(np.array([i/10.0])) for i in range(-self.size, self.size, 2)] # do testu mbm
+        #self.atoms = [Atom(np.array([i/10.0])) for i in range(-self.size, self.size, 2)] # do testu wykresu mbm
 
     def resetFAndE(self):
         for atom in self.atoms:
@@ -92,11 +92,9 @@ class MBM(ForceField):
     
     def singleForce(self, atom):
         x = atom.position
-        #x = np.linalg.norm(atom.position)
-        #print atom.position, x**3
-        atom.force = self.a*math.exp(-self.b*(x-1)**2)*2*self.b*(x-1) \
-                + self.c*math.exp(-(x+1)**2)*2*(1+x) \
-                + (x**3)*4*self.d
+        atom.force = -self.a*math.exp(-self.b*(x-1)**2)*2*self.b*(x-1) \
+                - self.c*math.exp(-(x+1)**2)*2*(1+x) \
+                - (x**3)*4*self.d
     
     def singleEnergy(self, atom):
         x = atom.position[0]
@@ -147,24 +145,24 @@ class Simulation(object):
         self.noSteps = int(noSteps)
         self.stepSize = float(stepSize)
 
-    def start(self):                     # w tym bedzie wmieszane juz pisanie do pliku (do poprawy) 
+    def start(self):                     # w tym bedzie wmieszane juz pisanie do pliku (funkcja do podzielenia na mniejsze) 
         energy = open('energy.csv', 'w') 
         trajectory = open('trajectory.xyz', 'w') 
         
         system = Atoms(self.no_molecules)
 
         #######################################
-        """test potencjalu mbm z ukladaniem atomow na prostej co 0.2 tylko na potrzeby wykresu,
+        """test wykresu potencjalu mbm z ukladaniem atomow na prostej co 0.2 tylko na potrzeby wykresu,
         w celu takiego ulozenia nalezy zmienic self.atoms w klasie Atoms """
-        forces, a, system2 = [], MBM(), Atoms(20)
+        energies, a, system2 = [], MBM(), Atoms(40)
+        positions = [i.position for i in system2.atoms]
         for i in system2.atoms:
-            print i.position
-            a.singleForce(i)
-            forces.append(-1*i.force)
-        plt.plot(forces)
+            a.singleEnergy(i)
+            energies.append(i.energy)
+        plt.plot(positions, energies)
+        plt.ylim([-6,4])
         plt.savefig("potencjalmbm.svg")
         plt.close()
-            
 
         ############################################
         
@@ -213,11 +211,9 @@ class Integration(object):
 class BaseVerlet(Integration):
     
     def step(self, atom, previous, stepSize):
-        #print 'previous',previous
         current = (atom.position, atom.velocity, atom.force)
         atom.position = 2*atom.position-previous[0]+(stepSize**2)*atom.force/atom.mass 
         atom.velocity = (atom.position - current[0])/stepSize
-        print atom.position
         return current
     
     
