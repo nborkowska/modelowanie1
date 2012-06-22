@@ -187,11 +187,11 @@ class Simulation(object):
                 totalPotEnergy += system.atoms[i].energy
                 previous[i] = verlet.step(system.atoms[i], previous[i], self.stepSize) #od razu sie ustawia nowe previous dla tego atomu
                 totalKinEnergy += system.atoms[i].getKinEnergy()
+                trajectory.write(str(i)+'\t'+str(system.atoms[i].position[0])+'\t0.000\t0.000\n')
             avPotEnergy = 1.0*totalPotEnergy/self.no_molecules
             avKinEnergy = 1.0*totalKinEnergy/self.no_molecules
             energy_result.append(avPotEnergy+avKinEnergy)
             energy.write(str(avPotEnergy)+'\t'+str(avKinEnergy)+'\t'+str(avPotEnergy+avKinEnergy)+'\n')
-            trajectory.write(str(system.atoms[i].position[0])+'\t0.000\t0.000\n')
         
         plt.plot(energy_result)
         plt.savefig("energia_calkowita.svg")
