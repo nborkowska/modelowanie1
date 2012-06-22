@@ -29,14 +29,14 @@ class RandomSample(object):
 
 class Atoms(object):            # zbior czasteczek 
     
-    dim = 1                    #na sile, bo mozemy miec kilka pudelek z atomami ale musimy rozwac ten sam wymiar ;]
+    dim = 1                    
 
     def __init__(self, size, atoms=[]):            #size - l.czasteczek, dim-wymiar
         self.size = size
-        self.atoms = [Atom(vector) for vector in \
-                RandomSample.getSampleSet(0, 10, self.size, self.dim)]
-        self.atoms = [Atom(np.array([i])) for i in range(self.size)]    #to wcale nie pomaga w dzialaniu
-        print self.atoms[-1].position
+        """self.atoms = [Atom(vector) for vector in \
+                RandomSample.getSampleSet(0, 10, self.size, self.dim)]"""
+        self.atoms = [Atom(np.array([i])) for i in range(-self.size/2,self.size/2)]
+        #self.atoms = [Atom(np.array([i/10.0])) for i in range(-self.size, self.size, 2)] # do testu mbm
 
     def resetFAndE(self):
         for atom in self.atoms:
@@ -152,6 +152,21 @@ class Simulation(object):
         trajectory = open('trajectory.xyz', 'w') 
         
         system = Atoms(self.no_molecules)
+
+        #######################################
+        """test potencjalu mbm z ukladaniem atomow na prostej co 0.2 tylko na potrzeby wykresu,
+        w celu takiego ulozenia nalezy zmienic self.atoms w klasie Atoms """
+        forces, a, system2 = [], MBM(), Atoms(20)
+        for i in system2.atoms:
+            print i.position
+            a.singleForce(i)
+            forces.append(-1*i.force)
+        plt.plot(forces)
+        plt.savefig("potencjalmbm.svg")
+        plt.close()
+            
+
+        ############################################
         
         prevPos = [x.position for x in system.atoms]
         prevVel = prevFor = np.zeros((self.no_molecules,Atoms.dim))
@@ -179,8 +194,6 @@ class Simulation(object):
             energy_result.append(avPotEnergy+avKinEnergy)
             energy.write(str(avPotEnergy)+'\t'+str(avKinEnergy)+'\t'+str(avPotEnergy+avKinEnergy)+'\n')
             trajectory.write(str(system.atoms[i].position[0])+'\t0.000\t0.000\n')
-            # policz dla kazdego atomu energie potencjalne i sily, zapisz albo wyrzuc albo jedno i drugie
-            # policz dla kazdego atomu polozenie i predkosci i energie kinetyczna zapisz albo wyrzuc do pliku 
         plt.plot(energy_result)
         plt.savefig("energia_calkowita.svg")
         plt.close()
@@ -253,24 +266,9 @@ def main(*args):
         else:
             simulation = Simulation(potential, integration, no_molecules, noSteps, stepSize)              #i tak korzystam w verlecie z globalnej wartosci stepSize... czyli tej co powyzej
             simulation.start()
-        
-        """a = Atoms(int(no_molecules))
-        b = SoftWalls()
-        c = MBM()
-        d = LenardJones()
-        for i in a.atoms:
-            print i.position, b.singleForce(i), c.singleForce(i)
-        print a.atoms[0].force
-        c.singleEnergy(a.atoms[0])
-        b.singleEnergy(a.atoms[3])
-        d.pairEnergy(a.atoms[1], a.atoms[2])
-        print a.atoms[0].energy, a.atoms[1].energy, a.atoms[3].energy
-        o = BaseVerlet()
-        o.nextPosition(a.atoms[2])"""
-                                         
+                                                 
 if __name__ == '__main__':
     sys.exit(main(*sys.argv))
-
 """
 a=Atoms(5)
 for i in a.atoms:
