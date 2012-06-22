@@ -161,7 +161,7 @@ class Simulation(object):
             energies.append(i.energy)
         plt.plot(positions, energies)
         plt.ylim([-6,4])
-        plt.savefig("potencjalmbm.svg")
+        #plt.savefig("potencjalmbm.svg")
         plt.close()
 
         ############################################
