@@ -37,6 +37,7 @@ class Atoms(object):            # zbior czasteczek
                 RandomSample.getSampleSet(0, 10, self.size, self.dim)]"""
         self.atoms = [Atom(np.array([i])) for i in range(-self.size/2,self.size/2)]
        #self.atoms = [Atom(np.array([i/10.0])) for i in range(-self.size, self.size, 2)] # do testu wykresu mbm
+        #self.atoms = [Atom(np.array([i/10.0])) for i in range(self.size)]
 
     def resetFAndE(self):
         for atom in self.atoms:
@@ -75,7 +76,7 @@ class SoftWalls(ForceField):
     def singleEnergy(self, atom):
         distance = np.linalg.norm(atom.position)
         if distance < self.L:
-            atom.energy = 0
+            atom.energy = 0.0
         else:
             atom.energy = 0.5*self.f*(self.L - distance)**2
     
@@ -151,49 +152,42 @@ class Simulation(object):
         
         system = Atoms(self.no_molecules)
 
-        #######################################
-        """test wykresu potencjalu mbm z ukladaniem atomow na prostej co 0.2 tylko na potrzeby wykresu,
-        w celu takiego ulozenia nalezy zmienic self.atoms w klasie Atoms """
-        energies, a, system2 = [], MBM(), Atoms(40)
-        positions = [i.position for i in system2.atoms]
-        for i in system2.atoms:
-            a.singleEnergy(i)
-            energies.append(i.energy)
-        plt.plot(positions, energies)
-        plt.ylim([-6,4])
-        #plt.savefig("potencjalmbm.svg")
-        plt.close()
-
-        ############################################
-        
         prevPos = [x.position for x in system.atoms]
         prevVel = prevFor = np.zeros((self.no_molecules,Atoms.dim))
         previous = zip(prevPos, prevVel, prevFor)        #dla pojedynczego atomu previous[index] to 3-elementowa krotka
         verlet = {'0': BasicVerlet(), '1': VelocityVerlet(), '2': LeapFrog()}.get(self.integration)
         potential = {'0': SoftWalls(), '1': MBM(), '2': LenardJones()}.get(self.potential)
-        energy_result=[]
+        energies, means, total = [], [], []
         
         for step in range(self.noSteps):
             system.resetFAndE()
             trajectory.write(str(self.noSteps)+'\nkomentarz\n')
-            totalPotEnergy = totalKinEnergy = 0
+            totalPotEnergy = totalKinEnergy = 0.0
             for i in range(self.no_molecules):
                 potential.singleForce(system.atoms[i])
                 potential.singleEnergy(system.atoms[i])
+
                 for atom in system.atoms[i+1:]:
                     potential.pairForce(system.atoms[i], atom)
                     potential.pairEnergy(system.atoms[i], atom)
                 
                 totalPotEnergy += system.atoms[i].energy
-                previous[i] = verlet.step(system.atoms[i], previous[i], self.stepSize) #od razu sie ustawia nowe previous dla tego atomu
                 totalKinEnergy += system.atoms[i].getKinEnergy()
                 trajectory.write(str(i)+'\t'+str(system.atoms[i].position[0])+'\t0.000\t0.000\n')
-            avPotEnergy = 1.0*totalPotEnergy/self.no_molecules
-            avKinEnergy = 1.0*totalKinEnergy/self.no_molecules
-            energy_result.append(avPotEnergy+avKinEnergy)
-            energy.write(str(avPotEnergy)+'\t'+str(avKinEnergy)+'\t'+str(avPotEnergy+avKinEnergy)+'\n')
-        
-        plt.plot(energy_result)
+                previous[i] = verlet.step(system.atoms[i], previous[i], self.stepSize) #od razu sie ustawia nowe previous dla tego atomu
+            energies.append([totalPotEnergy,totalKinEnergy])
+
+        """ zapozyczone """
+        means.append(np.array(energies[0]))
+        energy.write(str(means[0][0])+'\t'+str(means[0][1])+'\t'+str(means[0][0]+means[0][1])+'\n') 
+        for i in range(1,len(energies)):
+            means.append(means[i-1]+energies[i])
+        for i in range(1,len(energies)):
+            means[i] /= i+1
+            total.append(means[i][0]+means[i][1])
+            energy.write(str(means[i][0])+'\t'+str(means[i][1])+'\t'+str(means[i][0]+means[i][1])+'\n') 
+
+        plt.plot(total)
         plt.savefig("energia_calkowita.svg")
         plt.close()
         energy.close()
@@ -267,10 +261,4 @@ def main(*args):
                                                  
 if __name__ == '__main__':
     sys.exit(main(*sys.argv))
-"""
-a=Atoms(5)
-for i in a.atoms:
-    print i.position.array()
-wersja ustalona jest chyba taka, ze liczymy sily tak ze jak 5 atomow i miekkie scianki
-to licze miekkie scianki tylko, a jak lj to robie pary i licze tylko dla par"""
-"""Klasa wektor zostala zastapiona numpy.array - nie trzeba kombinowac z dzieleniem etc"""
+
