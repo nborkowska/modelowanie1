@@ -262,6 +262,9 @@ def main(*args):
         print 'Too few parameters.\n', help()
         return 0
     else:
+        if np.__version__ < 1.6:
+            print 'Sorry, your numpy version is too old. Please consider upgrading to 1.6.1'
+        
         potential, integration, no_molecules, noSteps, stepSize = args[1:] #slaaabe 
         available = xrange(3)
         if int(potential) not in available or int(integration) not in available:
@@ -274,4 +277,3 @@ def main(*args):
                                                  
 if __name__ == '__main__':
     sys.exit(main(*sys.argv))
-
