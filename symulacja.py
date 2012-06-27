@@ -25,7 +25,7 @@ class RandomSample(object):
     
     @staticmethod
     def getSampleSet(mu, sigma, size, dim):
-        return [RandomSample.getSample(mu, sigma, dim) for i in range(size)]
+        return [RandomSample.getSample(mu, sigma, dim) for i in xrange(size)]
 
 class Atoms(object):            # zbior czasteczek 
     
@@ -35,9 +35,9 @@ class Atoms(object):            # zbior czasteczek
         self.size = size
         """self.atoms = [Atom(vector) for vector in \
                 RandomSample.getSampleSet(0, 10, self.size, self.dim)]"""
-        self.atoms = [Atom(np.array([i])) for i in range(-self.size/2,self.size/2)]
-       #self.atoms = [Atom(np.array([i/10.0])) for i in range(-self.size, self.size, 2)] # do testu wykresu mbm
-        #self.atoms = [Atom(np.array([i/10.0])) for i in range(self.size)]
+        self.atoms = [Atom(np.array([i])) for i in xrange(-self.size/2,self.size/2)]
+       #self.atoms = [Atom(np.array([i/10.0])) for i in xrange(-self.size, self.size, 2)] # do testu wykresu mbm
+        #self.atoms = [Atom(np.array([i/10.0])) for i in xrange(self.size)]
 
     def resetFAndE(self):
         for atom in self.atoms:
@@ -111,7 +111,7 @@ class MBM(ForceField):
 
 class LenardJones(ForceField):
     
-    R, e = 1.0, 1.0
+    R, e = 0.5, 1.0
 
     def singleForce(self, atom):
         pass
@@ -120,21 +120,34 @@ class LenardJones(ForceField):
         pass
     
     def setParams(self, atom1, atom2):
-        direction = atom1.position-atom2.position # wektor kierunkowy
         distance = np.linalg.norm(atom1.position-atom2.position) #odleglosc euklidesowa
-        a = (self.R/distance)**6
-        return direction/distance, a
+        #direction = atom1.position-atom2.position
+        #print atom1.position, atom2.position, direction
+        #R6 = (self.R/distance)**6
+        R6 = self.R**6
+        #print 'R6', R6
+        #print distance
+        return distance, R6
     
     def pairForce(self, atom1, atom2):
-        normalized, a = self.setParams(atom1, atom2)
-        F = -12.0*self.e*a*(a-1)*normalized
+        distance, R6 = self.setParams(atom1, atom2)
+        print distance**6 - R6
+        F = 12.0*self.e*R6*(distance**6 - R6)/distance**13
+        #F = -12.0*self.e*R6*(R6-1)*distance
+        print F
         atom1.force += F
         atom2.force -= F
 
     def pairEnergy(self, atom1, atom2):
-        normalized, a = self.setParams(atom1, atom2)
-        E = self.e*a*(a-2)
-        atom1.energy, atom2.energy = E/2, E/2
+        distance, R6 = self.setParams(atom1, atom2)
+        #E = self.e*R6*(R6-2)
+        #E = self.e*R6*(R6-2)
+        s1 = R6**2/distance**12
+        s2 = 2*R6/distance**6
+        E = self.e*(s1-s2)
+        #atom1.energy += E/2
+        #atom2.energy += E/2
+        atom1.energy, atom2.energy = E, E
 
 
 class Simulation(object):
@@ -159,11 +172,11 @@ class Simulation(object):
         potential = {'0': SoftWalls(), '1': MBM(), '2': LenardJones()}.get(self.potential)
         energies, means, total = [], [], []
         
-        for step in range(self.noSteps):
+        for step in xrange(self.noSteps):
             system.resetFAndE()
-            trajectory.write(str(self.noSteps)+'\nkomentarz\n')
+            trajectory.write(str(self.no_molecules)+'\nkomentarz\n')
             totalPotEnergy = totalKinEnergy = 0.0
-            for i in range(self.no_molecules):
+            for i in xrange(self.no_molecules):
                 potential.singleForce(system.atoms[i])
                 potential.singleEnergy(system.atoms[i])
 
@@ -180,15 +193,15 @@ class Simulation(object):
         """ zapozyczone """
         means.append(np.array(energies[0]))
         energy.write(str(means[0][0])+'\t'+str(means[0][1])+'\t'+str(means[0][0]+means[0][1])+'\n') 
-        for i in range(1,len(energies)):
+        for i in xrange(1,len(energies)):
             means.append(means[i-1]+energies[i])
-        for i in range(1,len(energies)):
+        for i in xrange(1,len(energies)):
             means[i] /= i+1
             total.append(means[i][0]+means[i][1])
             energy.write(str(means[i][0])+'\t'+str(means[i][1])+'\t'+str(means[i][0]+means[i][1])+'\n') 
 
         plt.plot(total)
-        plt.savefig("energia_calkowita.svg")
+        plt.savefig("calkowita.svg")
         plt.close()
         energy.close()
         trajectory.close()
@@ -250,7 +263,7 @@ def main(*args):
         return 0
     else:
         potential, integration, no_molecules, noSteps, stepSize = args[1:] #slaaabe 
-        available = range(3)
+        available = xrange(3)
         if int(potential) not in available or int(integration) not in available:
             print 'Incorrect potential/integration. \n', help()
             return 0
