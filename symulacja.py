@@ -159,6 +159,7 @@ class Simulation(object):
         self.noSteps = int(noSteps)
         self.stepSize = float(stepSize)
 
+    # refactor it!!!!!
     def start(self):                     # w tym bedzie wmieszane juz pisanie do pliku (funkcja do podzielenia na mniejsze) 
         energy = open('energy.csv', 'w') 
         trajectory = open('trajectory.xyz', 'w') 
