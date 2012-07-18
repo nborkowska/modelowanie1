@@ -41,8 +41,8 @@ class Atoms(object):            # zbior czasteczek
 
     def resetFAndE(self):
         for atom in self.atoms:
-            self.force = np.zeros(self.dim)
-            self.energy = 0
+            atom.force = np.zeros(self.dim)
+            atom.energy = 0
 
 
 class ForceField(object):
@@ -159,7 +159,6 @@ class Simulation(object):
         self.noSteps = int(noSteps)
         self.stepSize = float(stepSize)
 
-    # refactor it!!!!!
     def start(self):                     # w tym bedzie wmieszane juz pisanie do pliku (funkcja do podzielenia na mniejsze) 
         energy = open('energy.csv', 'w') 
         trajectory = open('trajectory.xyz', 'w') 
