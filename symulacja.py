@@ -1,42 +1,46 @@
 #! /usr/bin/env python
 
-import sys
-import numpy as np
 import math
 import matplotlib.pyplot as plt
+import numpy as np
+import sys
+
+from optparse import OptionParser
 
 class Atom(object):
     
     def __init__(self, position, mass=1.0, energy = 0.0):
         self.position = position
         self.mass = mass
-        self.energy = energy                     #energia potencjalna, kinetyczna jest wyliczana
+        self.energy = energy                     # potential energy
         self.force = np.zeros(Atoms.dim)
         self.velocity = np.zeros(Atoms.dim)
     
     def getKinEnergy(self):
         return 0.5*self.mass*np.linalg.norm(self.velocity)**2
 
+
 class RandomSample(object):
 
     @staticmethod 
-    def getSample(mu, sigma, dim):                  #losowanie polozen poczatkowych
-        return 1.5*np.random.normal(mu, sigma, dim)#to juz zwraca wektor
+    def getSample(mu, sigma, dim):                  
+        return 1.5*np.random.normal(mu, sigma, dim)
     
     @staticmethod
     def getSampleSet(mu, sigma, size, dim):
         return [RandomSample.getSample(mu, sigma, dim) for i in xrange(size)]
 
-class Atoms(object):            # zbior czasteczek 
+
+class Atoms(object):
+    """ Container for atoms """
     
     dim = 1                    
 
-    def __init__(self, size, atoms=[]):            #size - l.czasteczek, dim-wymiar
+    def __init__(self, size, atoms=[]):
         self.size = size
         """self.atoms = [Atom(vector) for vector in \
                 RandomSample.getSampleSet(0, 10, self.size, self.dim)]"""
-        self.atoms = [Atom(np.array([i])) for i in xrange(-self.size/2,self.size/2)]
-       #self.atoms = [Atom(np.array([i/10.0])) for i in xrange(-self.size, self.size, 2)] # do testu wykresu mbm
+        self.atoms = [Atom(np.array([i])) for i in xrange(-self.size/2, self.size/2)]
         #self.atoms = [Atom(np.array([i/10.0])) for i in xrange(self.size)]
 
     def resetFAndE(self):
@@ -63,14 +67,14 @@ class ForceField(object):
 
 class SoftWalls(ForceField):
     
-    f, L = 0.2, 5                               #10, 10 nie wychodzi, nie potrzeba atrybutow instancji, wystarcza atrybuty klasy
+    f, L = 0.2, 5                # 10, 10 doesn't work
 
     def singleForce(self, atom):         
-        distance = np.linalg.norm(atom.position)       #tu we wzorze sa 2 rozne r_i!
+        distance = np.linalg.norm(atom.position)
         if distance < self.L:
             atom.force = np.zeros(Atoms.dim) 
         else:
-            atom.force = self.f*(self.L-distance)*atom.position/distance # bo tu jest juz rozniczka, a minus ze wzoru na sile
+            atom.force = self.f*(self.L-distance)*atom.position/distance
             
 
     def singleEnergy(self, atom):
@@ -89,7 +93,7 @@ class SoftWalls(ForceField):
 
 class MBM(ForceField):
     
-    a, b, c, d = 5.0, 10.0, 3.0, 0.02     #parametry ze skryptu
+    a, b, c, d = 5.0, 10.0, 3.0, 0.02
     
     def singleForce(self, atom):
         x = atom.position
@@ -120,63 +124,42 @@ class LenardJones(ForceField):
         pass
     
     def setParams(self, atom1, atom2):
-        distance = np.linalg.norm(atom1.position-atom2.position) #odleglosc euklidesowa
-        #direction = atom1.position-atom2.position
-        #print atom1.position, atom2.position, direction
-        #R6 = (self.R/distance)**6
-        R6 = self.R**6
-        #print 'R6', R6
-        #print distance
-        return distance, R6
-    
+        direction = atom1.position-atom2.position
+        distance = np.linalg.norm(atom1.position-atom2.position) # euclidean distance
+        a = (self.R/distance)**6
+        return direction/distance, a
+
     def pairForce(self, atom1, atom2):
-        distance, R6 = self.setParams(atom1, atom2)
-        print distance**6 - R6
-        F = 12.0*self.e*R6*(distance**6 - R6)/distance**13
-        #F = -12.0*self.e*R6*(R6-1)*distance
-        print F
+        normalized, a = self.setParams(atom1, atom2)
+        F = -12.0*self.e*a*(a-1)*normalized
         atom1.force += F
         atom2.force -= F
 
     def pairEnergy(self, atom1, atom2):
-        distance, R6 = self.setParams(atom1, atom2)
-        #E = self.e*R6*(R6-2)
-        #E = self.e*R6*(R6-2)
-        s1 = R6**2/distance**12
-        s2 = 2*R6/distance**6
-        E = self.e*(s1-s2)
-        #atom1.energy += E/2
-        #atom2.energy += E/2
-        atom1.energy, atom2.energy = E, E
+        normalized, a = self.setParams(atom1, atom2)
+        E = self.e*a*(a-2)
+        atom1.energy += E/2
+        atom2.energy += E/2
 
 
 class Simulation(object):
+    
+    def __init__(self, **kwargs):
+        kwargs.update({'system': Atoms(kwargs.pop('noMolecules'))})
+        self.__dict__.update(kwargs)
 
-    def __init__(self, potential, integration, no_molecules, noSteps, stepSize):
-        self.potential = potential
-        self.integration = integration
-        self.no_molecules = int(no_molecules)
-        self.noSteps = int(noSteps)
-        self.stepSize = float(stepSize)
-
-    def start(self):                     # w tym bedzie wmieszane juz pisanie do pliku (funkcja do podzielenia na mniejsze) 
-        energy = open('energy.csv', 'w') 
+    def trajAndEnergies(self, potential, verlet, previous):
+        """ Determine energies and trajectories """
+        system = self.system
         trajectory = open('trajectory.xyz', 'w') 
-        
-        system = Atoms(self.no_molecules)
-
-        prevPos = [x.position for x in system.atoms]
-        prevVel = prevFor = np.zeros((self.no_molecules,Atoms.dim))
-        previous = zip(prevPos, prevVel, prevFor)        #dla pojedynczego atomu previous[index] to 3-elementowa krotka
-        verlet = {'0': BasicVerlet(), '1': VelocityVerlet(), '2': LeapFrog()}.get(self.integration)
-        potential = {'0': SoftWalls(), '1': MBM(), '2': LenardJones()}.get(self.potential)
-        energies, means, total = [], [], []
+        energies = []
         
         for step in xrange(self.noSteps):
             system.resetFAndE()
-            trajectory.write(str(self.no_molecules)+'\nkomentarz\n')
+            trajectory.write('%d\nkomentarz\n' % (system.size))
             totalPotEnergy = totalKinEnergy = 0.0
-            for i in xrange(self.no_molecules):
+            
+            for i in xrange(system.size):
                 potential.singleForce(system.atoms[i])
                 potential.singleEnergy(system.atoms[i])
 
@@ -186,32 +169,45 @@ class Simulation(object):
                 
                 totalPotEnergy += system.atoms[i].energy
                 totalKinEnergy += system.atoms[i].getKinEnergy()
-                trajectory.write(str(i)+'\t'+str(system.atoms[i].position[0])+'\t0.000\t0.000\n')
-                previous[i] = verlet.step(system.atoms[i], previous[i], self.stepSize) #od razu sie ustawia nowe previous dla tego atomu
-            energies.append([totalPotEnergy,totalKinEnergy])
+                trajectory.write('%d\t%d\t0.000\t0.000\n' % (i, system.atoms[i].position[0]))
+                previous[i] = verlet.step(system.atoms[i], previous[i], self.stepSize)
+            energies.append((totalPotEnergy,totalKinEnergy))
 
+        trajectory.close()
+        return energies
+    
+    def start(self):
+        
+        prevVel = prevFor = np.zeros((self.system.size,Atoms.dim))
+        prev = zip([x.position for x in self.system.atoms], prevVel, prevFor)
+        verlet = {'bv': BasicVerlet(), 'vv': VelocityVerlet(), 'lf': LeapFrog()}.get(self.integration)
+        potential = {'sw': SoftWalls(), 'mbm': MBM(), 'lj': LenardJones()}.get(self.potential)
+        
+        means, total = [], []
+        energies = self.trajAndEnergies(potential, verlet, prev)
+        energy = open('energy.csv', 'w')
+        
         """ zapozyczone """
         means.append(np.array(energies[0]))
-        energy.write(str(means[0][0])+'\t'+str(means[0][1])+'\t'+str(means[0][0]+means[0][1])+'\n') 
+        energy.write('%d\t%d\t%d\n' % (tuple(means[0])+(sum(means[0]),))) 
         for i in xrange(1,len(energies)):
             means.append(means[i-1]+energies[i])
         for i in xrange(1,len(energies)):
             means[i] /= i+1
-            total.append(means[i][0]+means[i][1])
-            energy.write(str(means[i][0])+'\t'+str(means[i][1])+'\t'+str(means[i][0]+means[i][1])+'\n') 
+            total.append(sum(means[i]))
+            energy.write('%d\t%d\t%d\n' % (tuple(means[i])+(sum(means[i]),))) 
 
         plt.plot(total)
-        plt.savefig("calkowita.svg")
+        plt.savefig("overall.svg")
         plt.close()
         energy.close()
-        trajectory.close()
-
 
 
 class Integration(object):
     """ Abstract """
     
-    def step(self, atom, previous, stepSize):                      #nastepny krok dla pojedynczego atomu i pojedynczego kroku 
+    def step(self, atom, previous, stepSize):
+        """ next step for single atom """
         raise NotImplementedError
 
 
@@ -242,38 +238,47 @@ class LeapFrog(Integration):
         return current
     
 
-def help():
+def valid(options):
+    """ Check mandatory params """
 
-    info = "Usage: \n ./symulacje.py p i n s t \nwhere \n \
-            p - used potential, available options: \n \
-                0 - soft walls, 1 - mbm, 2 - Lenard-Jones \n \n \
-            i - intergation function, available options: \n \
-                0 - basic Verlet, 1 - Velocity Verlet, 2 - Leapfrog\n \n \
-            n - number of molecules \n \n \
-            s - number of simulation steps \n \n \
-            t - step length \n \n \
-            Example: ./symulacje.py 1 0 10 25 1 \n"
-    
-    return info
+    for val in options.__dict__.values():
+        if val == None:
+            return False
+
+    return True
 
 def main(*args):
     
-    if len(args) < 6:
-        print 'Too few parameters.\n', help()
+    pOpts = ('sw','mbm','lj')
+    iOpts = ('bv','vv','lf')
+    
+    pHelpText = '%s - soft walls, %s - mbm, %s - Lenard-Jones' % pOpts 
+    iHelpText = '%s - basic Verlet, %s - Velocity Verlet, %s - Leapfrog' % iOpts
+    
+    parser = OptionParser(usage="usage: %prog [options]", version="%prog 1.0")
+    parser.add_option('-p', '--potential', type='choice', dest='potential', \
+            choices=list(pOpts), help='Used potential, where ' + pHelpText)
+    parser.add_option('-i', '--integration', type='choice', dest='integration',
+            choices=list(iOpts), help='Integration function, where ' + iHelpText)
+    parser.add_option('-n', '--nomolecules', type='int', dest='noMolecules', \
+            help='Number of molecules')
+    parser.add_option('-s', '--steps', type='int', dest='noSteps', \
+            help='Number of simulation steps')
+    parser.add_option('-d', '--delta', type='float', dest='stepSize', \
+            help='Step length')
+
+    (options, args) = parser.parse_args()
+
+    if not valid(options):
+        parser.print_help()
         return 0
-    else:
-        if np.__version__ < 1.6:
-            print 'Sorry, your numpy version is too old. Please consider upgrading to 1.6.1'
+       
+    if np.__version__ < 1.6:
+        print 'Sorry, your numpy version is too old. Please consider upgrading to 1.6.1'
         
-        potential, integration, no_molecules, noSteps, stepSize = args[1:] #slaaabe 
-        available = xrange(3)
-        if int(potential) not in available or int(integration) not in available:
-            print 'Incorrect potential/integration. \n', help()
-            return 0
-        else:
-            simulation = Simulation(potential, integration, no_molecules, noSteps, stepSize)              #i tak korzystam w verlecie z globalnej wartosci stepSize...
-            simulation.start()
-            
-                                                 
+    simulation = Simulation(**options.__dict__)
+    simulation.start()
+    
+                                                
 if __name__ == '__main__':
     sys.exit(main(*sys.argv))
