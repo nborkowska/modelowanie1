@@ -242,7 +242,7 @@ def valid(options):
     """ Check mandatory params """
 
     for val in options.__dict__.values():
-        if val == None:
+        if val is None:
             return False
 
     return True
