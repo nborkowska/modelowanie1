@@ -3,7 +3,6 @@
 import math
 import matplotlib.pyplot as plt
 import numpy as np
-import sys
 
 from optparse import OptionParser
 
@@ -36,7 +35,7 @@ class Atoms(object):
     
     dim = 1                    
 
-    def __init__(self, size, atoms=[]):
+    def __init__(self, size):
         self.size = size
         """self.atoms = [Atom(vector) for vector in \
                 RandomSample.getSampleSet(0, 10, self.size, self.dim)]"""
@@ -281,4 +280,4 @@ def main(*args):
     
                                                 
 if __name__ == '__main__':
-    sys.exit(main(*sys.argv))
+    main()
