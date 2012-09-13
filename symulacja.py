@@ -188,13 +188,13 @@ class Simulation(object):
         
         """ zapozyczone """
         means.append(np.array(energies[0]))
-        energy.write('%d\t%d\t%d\n' % (tuple(means[0])+(sum(means[0]),))) 
+        energy.write('%f\t%f\t%f\n' % (tuple(means[0])+(sum(means[0]),))) 
         for i in xrange(1,len(energies)):
             means.append(means[i-1]+energies[i])
         for i in xrange(1,len(energies)):
             means[i] /= i+1
             total.append(sum(means[i]))
-            energy.write('%d\t%d\t%d\n' % (tuple(means[i])+(sum(means[i]),))) 
+            energy.write('%f\t%f\t%f\n' % (tuple(means[i])+(sum(means[i]),))) 
 
         plt.plot(total)
         plt.savefig("overall.svg")
